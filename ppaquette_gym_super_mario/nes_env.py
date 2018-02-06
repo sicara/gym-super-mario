@@ -15,7 +15,7 @@ from gym import utils, spaces
 from gym.utils import seeding
 
 REWARD_DEATH = -10000
-REWARD_START = 40
+DISTANCE_START = 40
 SEARCH_PATH = os.pathsep.join([os.environ['PATH'], '/usr/games', '/usr/local/games'])
 FCEUX_PATH = spawn.find_executable('fceux', SEARCH_PATH)
 if FCEUX_PATH is None:
@@ -74,10 +74,10 @@ class NesEnv(gym.Env, utils.EzPickle):
         self.last_frame = 0         # Last processed frame
         self.reward = 0             # Reward for last action
         self.episode_reward = 0     # Total rewards for episode
-        self.first_reward_call = True
         self.is_finished = False
         self.screen = np.zeros(shape=(self.screen_height, self.screen_width, 3), dtype=np.uint8)
         self.info = {}
+        self.old_info = {}
         self.level = 0
         self._reset_info_vars()
         self.first_step = False
@@ -245,17 +245,25 @@ class NesEnv(gym.Env, utils.EzPickle):
     def _reset_info_vars(self):
         # Overridable - To reset the information variables
         self.info = {}
+        self.old_info = {}
 
     def _start_episode(self):
         # Overridable - Starts a new episode
         return
 
+    def _is_dead(self):
+        # Check that the life is diminishing
+        return self.old_info.get('life', 0) > self.info.get('life', 0)
+
     def _get_reward(self):
-        if self.first_reward_call:
-            self.first_reward_call = False
-            return self.reward - REWARD_START
-        if self.is_finished:
-            return REWARD_DEATH
+        distance_since_last_frame = (
+            self.info['distance'] -
+            self.old_info.get('distance', DISTANCE_START)
+        )
+        self.reward = distance_since_last_frame
+
+        if self.is_finished and self._is_dead():
+            self.reward = REWARD_DEATH
         return self.reward
 
     def _get_episode_reward(self):
@@ -358,7 +366,6 @@ class NesEnv(gym.Env, utils.EzPickle):
     def _reset(self):
         if 1 == self.is_initialized:
             self.close()
-        self.first_reward_call = True
         self.last_frame = 0
         self.reward = 0
         self.episode_reward = 0

@@ -1,3 +1,4 @@
+import copy
 import logging
 import os
 
@@ -99,6 +100,7 @@ class SuperMarioBrosEnv(NesEnv):
         if frame_number <= self.last_frame or self.info is None:
             return
         parts = data.split('|')
+        self.old_info = copy.deepcopy(self.info)
         for part in parts:
             if part.find(':') == -1:
                 continue
@@ -107,10 +109,6 @@ class SuperMarioBrosEnv(NesEnv):
             value = int(parts_2[1])
             if 'is_finished' == name:
                 self.is_finished = bool(value)
-            elif 'distance' == name:
-                self.reward = value - self.info[name]
-                self.episode_reward = value
-                self.info[name] = value
             else:
                 self.info[name] = value
 
