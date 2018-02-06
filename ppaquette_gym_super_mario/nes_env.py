@@ -80,6 +80,8 @@ class NesEnv(gym.Env, utils.EzPickle):
         self.first_step = False
         self.lock = (NesLock()).get_lock()
 
+        self.temp_lua_path = ""
+
         # Seeding
         self.curr_seed = 0
         self._seed()
@@ -104,8 +106,8 @@ class NesEnv(gym.Env, utils.EzPickle):
             thread_incoming = Thread(target=self._listen_to_incoming_pipe, kwargs={'pipe_name': self.pipe_name})
             thread_incoming.start()
 
-        # Cannot open output pipe now, otherwise it will block until
-        # a reader tries to open the file in read mode - Must launch fceux first
+            # Cannot open output pipe now, otherwise it will block until
+            # a reader tries to open the file in read mode - Must launch fceux first
 
     def _write_to_pipe(self, message):
         # Writes to output file (to communicate action to game)
@@ -145,7 +147,7 @@ class NesEnv(gym.Env, utils.EzPickle):
 
     def _listen_to_incoming_pipe(self, pipe_name):
         # Listens to incoming messages
-        self.path_pipe_in = '%s-in.%d' % (self.path_pipe_prefix, self.pipe_name)
+        self.path_pipe_in = '%s-in.%s' % (self.path_pipe_prefix, pipe_name)
         if not os.path.exists(self.path_pipe_in):
             os.mkfifo(self.path_pipe_in)
         try:
@@ -190,8 +192,8 @@ class NesEnv(gym.Env, utils.EzPickle):
         self._create_pipes()
 
         # Creating temporary lua file
-        temp_lua_path = os.path.join('/tmp', str(seeding.hash_seed(None) % 2 ** 32) + '.lua')
-        temp_lua_file = open(temp_lua_path, 'w', 1)
+        self.temp_lua_path = os.path.join('/tmp', str(seeding.hash_seed(None) % 2 ** 32) + '.lua')
+        temp_lua_file = open(self.temp_lua_path, 'w', 1)
         for k, v in list(self.launch_vars.items()):
             temp_lua_file.write('%s = "%s";\n' % (k, v))
         i = 0
@@ -212,12 +214,13 @@ class NesEnv(gym.Env, utils.EzPickle):
         # Loading fceux
         args = [FCEUX_PATH]
         args.extend(self.cmd_args[:])
-        args.extend(['--loadlua', temp_lua_path])
+        args.extend(['--loadlua', self.temp_lua_path])
         args.append(self.rom_path)
-        args.extend(['>/dev/null', '2>/dev/null', '&'])
+        args.extend(['>log/fceux.stdout.log', '2>log/fceux.stderr.log', '&'])
         self.subprocess = subprocess.Popen(' '.join(args), shell=True)
         self.subprocess.communicate()
         if 0 == self.subprocess.returncode:
+            logger.warn('start pid : %s command : %s' % (self.subprocess.pid, ' '.join(args), ))
             self.is_initialized = 1
             if not self.disable_out_pipe:
                 with self.lock_out:
@@ -227,9 +230,9 @@ class NesEnv(gym.Env, utils.EzPickle):
                         self.pipe_out = None
             # Removing lua file
             sleep(1)  # Sleeping to make sure fceux has time to load file before removing
-            if os.path.isfile(temp_lua_path):
+            if os.path.isfile(self.temp_lua_path):
                 try:
-                    os.remove(temp_lua_path)
+                    os.remove(self.temp_lua_path)
                 except OSError:
                     pass
         else:
@@ -284,7 +287,8 @@ class NesEnv(gym.Env, utils.EzPickle):
                 sleep(0.001)
                 if 0 == self.is_initialized:
                     break
-                if loop_counter >= 20000:
+                if loop_counter >= 50000:
+                    logger.warn('relaunching pid : %s loop_counter : %s' % (self.subprocess.pid, loop_counter, ))
                     # Game not properly launched, relaunching
                     restart_counter += 1
                     loop_counter = 0
@@ -320,15 +324,19 @@ class NesEnv(gym.Env, utils.EzPickle):
                 sleep(0.001)
                 if 0 == self.is_initialized:
                     break
-                if loop_counter >= 20000:
+                if loop_counter >= 50000:
                     # Game stuck, returning
                     # Likely caused by fceux incoming pipe not working
-                    logger.warn('Closing episode (appears to be stuck). See documentation for how to handle this issue.')
+                    logger.warn('Closing episode (appears to be stuck). See documentation for how to handle this issue. pid : %s' % self.subprocess.pid)
                     if self.subprocess is not None:
                         # Workaround, killing process with pid + 1 (shell = pid, shell + 1 = fceux)
                         try:
-                            os.kill(self.subprocess.pid + 1, signal.SIGKILL)
-                        except OSError:
+                            cmd = "ps -ef | grep 'fceux' | grep '%s' | grep -v grep | awk '{print \"kill -9\",$2}' | sh -v" % self.temp_lua_path
+                            logger.warn('kill prcess %s : %s' % (self.subprocess.pid + 1, cmd))
+                            #os.kill(self.subprocess.pid + 1, signal.SIGTERM)
+                            os.system(cmd)
+                        except Exception as e:
+                            logger.warn('Failed to kill prcess %s %s' % (self.subprocess.pid + 1, e))
                             pass
                         self.subprocess = None
                     return self._get_state(), 0, True, {'ignore': True}
@@ -384,8 +392,12 @@ class NesEnv(gym.Env, utils.EzPickle):
         if self.subprocess is not None:
             # Workaround, killing process with pid + 1 (shell = pid, shell + 1 = fceux)
             try:
-                os.kill(self.subprocess.pid + 1, signal.SIGKILL)
-            except OSError:
+                cmd = "ps -ef | grep 'fceux' | grep '%s' | grep -v grep | awk '{print \"kill -9\",$2}' | sh -v" % self.temp_lua_path
+                logger.warn('kill prcess %s : %s' % (self.subprocess.pid + 1, cmd))
+                #os.kill(self.subprocess.pid + 1, signal.SIGTERM)
+                os.system(cmd)
+            except OSError as e:
+                logger.warn('Failed to kill prcess %s %s' % (self.subprocess.pid + 1, str(e)))
                 pass
             self.subprocess = None
         sleep(0.001)

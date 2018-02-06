@@ -1,22 +1,18 @@
 # gym-super-mario
 #### **Gym Super Mario is an environment bundle for OpenAI Gym**
 ---
-<div id="installation"></div>Installation
+Installation
 ============
 
-You need to install [gym-pull](https://github.com/ppaquette/gym-pull)
-
 ```shell
-pip install gym-pull
+pip install git+https://github.com/sicara/gym-super-mario.git
 ```
 
  To load and run the environments, run
 
 ```python
 import gym
-import gym_pull
-gym_pull.pull('github.com/ppaquette/gym-super-mario')        # Only required once, envs will be loaded with import gym_pull afterwards
-env = gym.make('ppaquette/SuperMarioBros-1-1-v0')
+import ppaquette_gym_super_mario
 ```
 
 Environments included:
