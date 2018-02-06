@@ -1,4 +1,3 @@
-import copy
 import logging
 import os
 
@@ -100,7 +99,6 @@ class SuperMarioBrosEnv(NesEnv):
         if frame_number <= self.last_frame or self.info is None:
             return
         parts = data.split('|')
-        self.old_info = copy.deepcopy(self.info)
         for part in parts:
             if part.find(':') == -1:
                 continue

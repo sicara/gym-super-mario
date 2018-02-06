@@ -1,3 +1,4 @@
+import copy
 import logging
 import os
 import multiprocessing
@@ -260,7 +261,11 @@ class NesEnv(gym.Env, utils.EzPickle):
             self.info['distance'] -
             self.old_info.get('distance', DISTANCE_START)
         )
-        self.reward = distance_since_last_frame
+        score_since_last_frame = (
+            self.info['score'] -
+            self.old_info.get('score', 0)
+        )
+        self.reward = distance_since_last_frame + score_since_last_frame
 
         if self.is_finished and self._is_dead():
             self.reward = REWARD_DEATH
@@ -320,6 +325,7 @@ class NesEnv(gym.Env, utils.EzPickle):
                     thread_incoming.start()
 
         start_frame = self.last_frame
+        self.old_info = copy.deepcopy(self.info)
 
         # Sending no-ops if in first step
         if self.first_step:
