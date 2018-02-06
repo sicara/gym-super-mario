@@ -15,8 +15,9 @@ import gym
 from gym import utils, spaces
 from gym.utils import seeding
 
-REWARD_DEATH = -10000
-DISTANCE_START = 40
+REWARD_DEATH = -10000  # Negative reward when Mario dies
+DISTANCE_START = 40    # Distance at which Mario starts in the level
+STUCK_DURATION = 20    # Duration limit for Mario to get stuck in seconds
 SEARCH_PATH = os.pathsep.join([os.environ['PATH'], '/usr/games', '/usr/local/games'])
 FCEUX_PATH = spawn.find_executable('fceux', SEARCH_PATH)
 if FCEUX_PATH is None:
@@ -76,6 +77,8 @@ class NesEnv(gym.Env, utils.EzPickle):
         self.reward = 0             # Reward for last action
         self.episode_reward = 0     # Total rewards for episode
         self.is_finished = False
+        self.last_max_distance = 0
+        self.last_max_distance_time = 0
         self.screen = np.zeros(shape=(self.screen_height, self.screen_width, 3), dtype=np.uint8)
         self.info = {}
         self.old_info = {}
@@ -256,6 +259,20 @@ class NesEnv(gym.Env, utils.EzPickle):
         # Check that the life is diminishing
         return self.old_info.get('life', 0) > self.info.get('life', 0)
 
+    def _is_stuck(self):
+        last_max_distance_update = max(
+            self.last_max_distance,
+            self.info.get('distance', 0)
+        )
+
+        if last_max_distance_update <= self.last_max_distance:
+            stuck_too_long = np.abs(self.info['time'] - self.last_max_distance_time) >= STUCK_DURATION
+            return stuck_too_long
+        else:
+            self.last_max_distance_time = self.info['time']
+            self.last_max_distance = last_max_distance_update
+            return False
+
     def _get_reward(self):
         distance_since_last_frame = (
             self.info['distance'] -
@@ -267,7 +284,7 @@ class NesEnv(gym.Env, utils.EzPickle):
         )
         self.reward = distance_since_last_frame + score_since_last_frame
 
-        if self.is_finished and self._is_dead():
+        if self._get_is_finished and (self._is_dead() or self._is_stuck()):
             self.reward = REWARD_DEATH
         return self.reward
 
@@ -277,7 +294,7 @@ class NesEnv(gym.Env, utils.EzPickle):
 
     def _get_is_finished(self):
         # Overridable - Returns a flag to indicate if the episode is finished
-        return self.is_finished
+        return self.is_finished or self._is_stuck()
 
     def _get_state(self):
         # Overridable - Returns the state
@@ -377,6 +394,8 @@ class NesEnv(gym.Env, utils.EzPickle):
         self.episode_reward = 0
         self.is_finished = False
         self.first_step = True
+        self.last_max_distance = 0
+        self.last_max_distance_time = 0
         self._reset_info_vars()
         with self.lock:
             self._launch_fceux()
