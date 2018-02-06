@@ -14,6 +14,8 @@ import gym
 from gym import utils, spaces
 from gym.utils import seeding
 
+REWARD_DEATH = -10000
+REWARD_START = 40
 SEARCH_PATH = os.pathsep.join([os.environ['PATH'], '/usr/games', '/usr/local/games'])
 FCEUX_PATH = spawn.find_executable('fceux', SEARCH_PATH)
 if FCEUX_PATH is None:
@@ -72,6 +74,7 @@ class NesEnv(gym.Env, utils.EzPickle):
         self.last_frame = 0         # Last processed frame
         self.reward = 0             # Reward for last action
         self.episode_reward = 0     # Total rewards for episode
+        self.first_reward_call = True
         self.is_finished = False
         self.screen = np.zeros(shape=(self.screen_height, self.screen_width, 3), dtype=np.uint8)
         self.info = {}
@@ -248,7 +251,11 @@ class NesEnv(gym.Env, utils.EzPickle):
         return
 
     def _get_reward(self):
-        # Overridable - Returns the reward for the last action
+        if self.first_reward_call:
+            self.first_reward_call = False
+            return self.reward - REWARD_START
+        if self.is_finished:
+            return REWARD_DEATH
         return self.reward
 
     def _get_episode_reward(self):
@@ -351,6 +358,7 @@ class NesEnv(gym.Env, utils.EzPickle):
     def _reset(self):
         if 1 == self.is_initialized:
             self.close()
+        self.first_reward_call = True
         self.last_frame = 0
         self.reward = 0
         self.episode_reward = 0
@@ -394,7 +402,6 @@ class NesEnv(gym.Env, utils.EzPickle):
             try:
                 cmd = "ps -ef | grep 'fceux' | grep '%s' | grep -v grep | awk '{print \"kill -9\",$2}' | sh -v" % self.temp_lua_path
                 logger.warn('kill prcess %s : %s' % (self.subprocess.pid + 1, cmd))
-                #os.kill(self.subprocess.pid + 1, signal.SIGTERM)
                 os.system(cmd)
             except OSError as e:
                 logger.warn('Failed to kill prcess %s %s' % (self.subprocess.pid + 1, str(e)))
@@ -552,6 +559,8 @@ class NesEnv(gym.Env, utils.EzPickle):
 
 
 class MetaNesEnv(NesEnv):
+    # Used for the whole game
+
     def __init__(self, average_over=10, passing_grade=600, min_tries_for_avg=5, num_levels=0):
         NesEnv.__init__(self)
         self.average_over = average_over
@@ -606,7 +615,7 @@ class MetaNesEnv(NesEnv):
         # Can be overridden
         std_reward = episode_reward
         std_reward = min(1000, std_reward)                                  # Cannot be more than 1,000
-        std_reward = max(0, std_reward)                                     # Cannot be less than 0
+        std_reward = max(REWARD_DEATH, std_reward)                          # Cannot be less than the reward for death
         return std_reward
 
     def get_total_reward(self):

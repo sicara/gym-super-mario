@@ -217,15 +217,6 @@ class SuperMarioBrosEnv(NesEnv):
         elif 'exit' == message_type:
             self._process_exit_message()
 
-    def _get_reward(self):
-        return self.reward
-
-    def _get_episode_reward(self):
-        return self.episode_reward
-
-    def _get_is_finished(self):
-        return self.is_finished
-
     def _get_state(self):
         if 1 == self.draw_tiles:
             return self.tiles.copy()
