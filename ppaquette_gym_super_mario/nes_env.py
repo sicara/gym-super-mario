@@ -52,7 +52,10 @@ class NesEnv(gym.Env, utils.EzPickle):
         self.action_space = spaces.MultiDiscrete([[0, 1]] * NUM_ACTIONS)
         self.observation_space = spaces.Box(low=0, high=255, shape=(self.screen_height, self.screen_width, 3))
         self.launch_vars = {}
-        self.cmd_args = ['--xscale 2', '--yscale 2', '-f 0']
+        if 'FULLSCREEN' in os.environ:
+            self.cmd_args = ['-f 1']
+        else:
+            self.cmd_args = ['--xscale 2', '--yscale 2', '-f 0']
         self.lua_path = []
         self.subprocess = None
         self.no_render = True

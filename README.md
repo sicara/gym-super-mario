@@ -15,6 +15,8 @@ import gym
 import ppaquette_gym_super_mario
 ```
 
+To show the emulator window fullscreen add an environment variable `export FULLSCREEN=true`
+
 Environments included:
 ============
 - ppaquette/meta-SuperMarioBros-v0
