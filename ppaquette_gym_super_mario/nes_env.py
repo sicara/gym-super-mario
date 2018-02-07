@@ -174,8 +174,9 @@ class NesEnv(gym.Env, utils.EzPickle):
                 if message[-1:-2:-1] == '!':
                     try:
                         self._process_pipe_message(buffer[:-1])
-                    except:
-                        pass
+                    except Exception as e:
+                        logger.error('Got error', e)
+                        break
                     if 'exit' == buffer[-5:-1]:
                         break
                     buffer = ''
@@ -358,6 +359,16 @@ class NesEnv(gym.Env, utils.EzPickle):
         self._write_to_pipe('commands_%d#%s' % (start_frame, ','.join([str(i) for i in action])))
 
         # Waiting for frame to be processed (self.last_frame will be increased when done)
+        self._wait_next_frame(start_frame)
+
+        # Getting results
+        reward = self._get_reward()
+        state = self._get_state()
+        is_finished = self._get_is_finished()
+        info = self._get_info()
+        return state, reward, is_finished, info
+
+    def _wait_next_frame(self, start_frame):
         loop_counter = 0
         if not self.disable_in_pipe:
             while self.last_frame <= start_frame and not self.is_finished:
@@ -374,20 +385,12 @@ class NesEnv(gym.Env, utils.EzPickle):
                         try:
                             cmd = "ps -ef | grep 'fceux' | grep '%s' | grep -v grep | awk '{print \"kill -9\",$2}' | sh -v" % self.temp_lua_path
                             logger.warn('kill prcess %s : %s' % (self.subprocess.pid + 1, cmd))
-                            #os.kill(self.subprocess.pid + 1, signal.SIGTERM)
                             os.system(cmd)
                         except Exception as e:
                             logger.warn('Failed to kill prcess %s %s' % (self.subprocess.pid + 1, e))
                             pass
                         self.subprocess = None
                     return self._get_state(), 0, True, {'ignore': True}
-
-        # Getting results
-        reward = self._get_reward()
-        state = self._get_state()
-        is_finished = self._get_is_finished()
-        info = self._get_info()
-        return state, reward, is_finished, info
 
     def _reset(self):
         if 1 == self.is_initialized:
