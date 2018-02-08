@@ -440,7 +440,7 @@ class NesEnv(gym.Env, utils.EzPickle):
             try:
                 cmd = "ps -ef | grep 'fceux' | grep '%s' | grep -v grep | awk '{print \"kill -9\",$2}' | sh -v" % self.temp_lua_path
                 logger.warn('kill prcess %s : %s' % (self.subprocess.pid + 1, cmd))
-                os.system(cmd)
+                os.system(cmd + '> /dev/null')
             except OSError as e:
                 logger.warn('Failed to kill prcess %s %s' % (self.subprocess.pid + 1, str(e)))
                 pass
