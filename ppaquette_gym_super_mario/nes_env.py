@@ -95,6 +95,7 @@ class NesEnv(gym.Env, utils.EzPickle):
         # Seeding
         self.curr_seed = 0
         self._seed()
+        self._configure()
 
     def _configure(self, reward_death=DEFAULT_REWARD_DEATH, stuck_duration=STUCK_DURATION):
         self.reward_death = reward_death
