@@ -379,7 +379,7 @@ class NesEnv(gym.Env, utils.EzPickle):
                 if loop_counter >= 50000:
                     # Game stuck, returning
                     # Likely caused by fceux incoming pipe not working
-                    logger.warn('Closing episode (appears to be stuck). See documentation for how to handle this issue. pid : %s' % self.subprocess.pid)
+                    logger.warn('Closing episode (appears to be stuck). See documentation for how to handle this issue.')
                     if self.subprocess is not None:
                         # Workaround, killing process with pid + 1 (shell = pid, shell + 1 = fceux)
                         try:
