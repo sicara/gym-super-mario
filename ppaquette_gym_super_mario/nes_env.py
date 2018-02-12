@@ -15,9 +15,9 @@ import gym
 from gym import utils, spaces
 from gym.utils import seeding
 
-REWARD_DEATH = -10000  # Negative reward when Mario dies
-DISTANCE_START = 40    # Distance at which Mario starts in the level
-STUCK_DURATION = 20    # Duration limit for Mario to get stuck in seconds
+DEFAULT_REWARD_DEATH = -2  # Negative reward when Mario dies
+DISTANCE_START = 40        # Distance at which Mario starts in the level
+STUCK_DURATION = 100       # Duration limit for Mario to get stuck in seconds
 SEARCH_PATH = os.pathsep.join([os.environ['PATH'], '/usr/games', '/usr/local/games'])
 FCEUX_PATH = spawn.find_executable('fceux', SEARCH_PATH)
 if FCEUX_PATH is None:
@@ -96,11 +96,9 @@ class NesEnv(gym.Env, utils.EzPickle):
         self.curr_seed = 0
         self._seed()
 
-    def _configure(self, rom_path=None, lock=None):
-        if rom_path is not None:
-            self.rom_path = rom_path
-        if lock is not None:
-            self.lock = lock
+    def _configure(self, reward_death=DEFAULT_REWARD_DEATH, stuck_duration=STUCK_DURATION):
+        self.reward_death = reward_death
+        self.stuck_duration = stuck_duration
 
     def _create_pipes(self):
         # Creates named pipe for inter-process communication
@@ -270,7 +268,7 @@ class NesEnv(gym.Env, utils.EzPickle):
         )
 
         if last_max_distance_update <= self.last_max_distance:
-            stuck_too_long = np.abs(self.info['time'] - self.last_max_distance_time) >= STUCK_DURATION
+            stuck_too_long = np.abs(self.info['time'] - self.last_max_distance_time) >= self.stuck_duration
             return stuck_too_long
         else:
             self.last_max_distance_time = self.info['time']
@@ -289,7 +287,7 @@ class NesEnv(gym.Env, utils.EzPickle):
         self.reward = distance_since_last_frame + score_since_last_frame
 
         if self._get_is_finished and (self._is_dead() or self._is_stuck()):
-            self.reward = REWARD_DEATH
+            self.reward = self.reward_death
         return self.reward
 
     def _get_episode_reward(self):
@@ -346,7 +344,6 @@ class NesEnv(gym.Env, utils.EzPickle):
                     thread_incoming.start()
 
         start_frame = self.last_frame
-        self.old_info = copy.deepcopy(self.info)
 
         # Sending no-ops if in first step
         if self.first_step:
@@ -366,6 +363,9 @@ class NesEnv(gym.Env, utils.EzPickle):
         state = self._get_state()
         is_finished = self._get_is_finished()
         info = self._get_info()
+
+        # Copy info into old info right at the end
+        self.old_info = copy.deepcopy(self.info)
         return state, reward, is_finished, info
 
     def _wait_next_frame(self, start_frame):
@@ -653,7 +653,7 @@ class MetaNesEnv(NesEnv):
         # Can be overridden
         std_reward = episode_reward
         std_reward = min(1000, std_reward)                                  # Cannot be more than 1,000
-        std_reward = max(REWARD_DEATH, std_reward)                          # Cannot be less than the reward for death
+        std_reward = max(self.reward_death, std_reward)                          # Cannot be less than the reward for death
         return std_reward
 
     def get_total_reward(self):
