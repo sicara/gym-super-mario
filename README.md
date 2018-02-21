@@ -12,7 +12,7 @@ pip install git+https://github.com/sicara/gym-super-mario.git
 
 ```python
 import gym
-import ppaquette_gym_super_mario
+import super_mario
 ```
 
 To show the emulator window fullscreen add an environment variable `export FULLSCREEN=true`

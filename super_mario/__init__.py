@@ -1,5 +1,4 @@
 from gym.envs.registration import register
-from .package_info import USERNAME
 from .nes_env import NesEnv, MetaNesEnv
 from .super_mario_bros import SuperMarioBrosEnv, MetaSuperMarioBrosEnv
 
@@ -20,8 +19,8 @@ try:
         tile_suffix = '-Tiles' if draw_tiles == 1 else ''
 
         register(
-            id='{}/meta-SuperMarioBros{}-v0'.format(USERNAME, tile_suffix),
-            entry_point='{}_gym_super_mario:MetaSuperMarioBrosEnv'.format(USERNAME),
+            id='meta-SuperMarioBros{}-v0'.format(tile_suffix),
+            entry_point='super_mario:MetaSuperMarioBrosEnv',
             max_episode_steps=9999999,
             reward_threshold=32000,
             kwargs={ 'draw_tiles': draw_tiles, 'average_over': 3, 'passing_grade': 600, 'min_tries_for_avg': 3 },
@@ -31,8 +30,8 @@ try:
         for (world_number, level_number, area_number, max_distance) in SMB_LEVELS:
             level = (world_number - 1) * 4 + (level_number - 1)
             register(
-                id='{}/SuperMarioBros-{}-{}{}-v0'.format(USERNAME, world_number, level_number, tile_suffix),
-                entry_point='{}_gym_super_mario:SuperMarioBrosEnv'.format(USERNAME),
+                id='SuperMarioBros-{}-{}{}-v0'.format(world_number, level_number, tile_suffix),
+                entry_point='super_mario:SuperMarioBrosEnv',
                 max_episode_steps=10000,
                 reward_threshold=(max_distance - 40),
                 kwargs={ 'draw_tiles': draw_tiles, 'level': level },
