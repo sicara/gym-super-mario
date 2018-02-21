@@ -26,7 +26,22 @@ if FCEUX_PATH is None:
 logger = logging.getLogger(__name__)
 
 # Constants
-NUM_ACTIONS = 6
+ACTIONS_MAPPING = {
+    0: [0, 0, 0, 0, 0, 0],  # NOOP
+    1: [1, 0, 0, 0, 0, 0],  # Up
+    2: [0, 0, 1, 0, 0, 0],  # Down
+    3: [0, 1, 0, 0, 0, 0],  # Left
+    4: [0, 1, 0, 0, 1, 0],  # Left + A
+    5: [0, 1, 0, 0, 0, 1],  # Left + B
+    6: [0, 1, 0, 0, 1, 1],  # Left + A + B
+    7: [0, 0, 0, 1, 0, 0],  # Right
+    8: [0, 0, 0, 1, 1, 0],  # Right + A
+    9: [0, 0, 0, 1, 0, 1],  # Right + B
+    10: [0, 0, 0, 1, 1, 1],  # Right + A + B
+    11: [0, 0, 0, 0, 1, 0],  # A
+    12: [0, 0, 0, 0, 0, 1],  # B
+    13: [0, 0, 0, 0, 1, 1],  # A + B
+}
 
 # Singleton pattern
 class NesLock:
@@ -49,8 +64,8 @@ class NesEnv(gym.Env, utils.EzPickle):
         self.rom_path = ''
         self.screen_height = 224
         self.screen_width = 256
-        self.action_space = spaces.MultiDiscrete([[0, 1]] * NUM_ACTIONS)
-        self.observation_space = spaces.Box(low=0, high=255, shape=(self.screen_height, self.screen_width, 3))
+        self.action_space = spaces.Discrete(len(ACTIONS_MAPPING))
+        self.observation_space = spaces.Box(low=0, high=255, dtype=np.uint8, shape=(self.screen_height, self.screen_width, 3))
         self.launch_vars = {}
         if 'FULLSCREEN' in os.environ:
             self.cmd_args = ['-f 1']
@@ -94,7 +109,7 @@ class NesEnv(gym.Env, utils.EzPickle):
 
         # Seeding
         self.curr_seed = 0
-        self._seed()
+        self.seed()
         self._configure()
 
     def _configure(self, reward_death=DEFAULT_REWARD_DEATH, stuck_duration=STUCK_DURATION):
@@ -307,16 +322,11 @@ class NesEnv(gym.Env, utils.EzPickle):
         # Overridable - Returns the other variables
         return self.info
 
-    def _step(self, action):
+    def step(self, action):
         if 0 == self.is_initialized:
             return self._get_state(), 0, self._get_is_finished(), {}
 
-        if NUM_ACTIONS != len(action):
-            logger.warn('NES action list must contain %d items. Padding missing items with 0' % NUM_ACTIONS)
-            old_action = action
-            action = [0] * NUM_ACTIONS
-            for i in range(len(old_action)):
-                action[i] = old_action[i]
+        action_mapped = ACTIONS_MAPPING[action]
 
         # Blocking until game sends ready
         loop_counter = 0
@@ -354,7 +364,7 @@ class NesEnv(gym.Env, utils.EzPickle):
 
         # Sending commands and resetting reward to 0
         self.reward = 0
-        self._write_to_pipe('commands_%d#%s' % (start_frame, ','.join([str(i) for i in action])))
+        self._write_to_pipe('commands_%d#%s' % (start_frame, ','.join([str(i) for i in action_mapped])))
 
         # Waiting for frame to be processed (self.last_frame will be increased when done)
         self._wait_next_frame(start_frame)
@@ -393,7 +403,7 @@ class NesEnv(gym.Env, utils.EzPickle):
                         self.subprocess = None
                     return self._get_state(), 0, True, {'ignore': True}
 
-    def _reset(self):
+    def reset(self):
         if 1 == self.is_initialized:
             self.close()
         self.last_frame = 0
@@ -411,7 +421,7 @@ class NesEnv(gym.Env, utils.EzPickle):
         self.screen = np.zeros(shape=(self.screen_height, self.screen_width, 3), dtype=np.uint8)
         return self._get_state()
 
-    def _render(self, mode='human', close=False):
+    def render(self, mode='human', close=False):
         if close:
             if self.viewer is not None:
                 self.viewer.close()
@@ -431,7 +441,7 @@ class NesEnv(gym.Env, utils.EzPickle):
                 self.viewer = rendering.SimpleImageViewer()
             self.viewer.imshow(img)
 
-    def _close(self):
+    def close(self):
         # Terminating thread
         self.is_exiting = 1
         self._write_to_pipe('exit')
@@ -456,7 +466,7 @@ class NesEnv(gym.Env, utils.EzPickle):
         self._reset_info_vars()
         self.is_initialized = 0
 
-    def _seed(self, seed=None):
+    def seed(self, seed=None):
         self.curr_seed = seeding.hash_seed(seed) % 256
         return [self.curr_seed]
 
@@ -697,7 +707,7 @@ class MetaNesEnv(NesEnv):
                 averages[i] = round(level_average, 4)
         return averages
 
-    def _reset(self):
+    def reset(self):
         # Reset is called on first step() after level is finished
         # or when change_level() is called. Returning if neither have been called to
         # avoid resetting the level twice
@@ -716,12 +726,12 @@ class MetaNesEnv(NesEnv):
         self.screen = np.zeros(shape=(self.screen_height, self.screen_width, 3), dtype=np.uint8)
         return self._get_state()
 
-    def _step(self, action):
+    def step(self, action):
         # Changing level
         if self.find_new_level:
             self.change_level()
 
-        obs, step_reward, is_finished, info = NesEnv._step(self, action)
+        obs, step_reward, is_finished, info = NesEnv.step(self, action)
         reward, self.total_reward = self._calculate_reward(self._get_episode_reward(), self.total_reward)
         # First step() after new episode returns the entire total reward
         # because stats_recorder resets the episode score to 0 after reset() is called
