@@ -19,7 +19,7 @@ try:
         tile_suffix = '-Tiles' if draw_tiles == 1 else ''
 
         register(
-            id='meta-SuperMarioBros{}-v0'.format(tile_suffix),
+            id='meta-SuperMarioBros{}-v1'.format(tile_suffix),
             entry_point='super_mario:MetaSuperMarioBrosEnv',
             max_episode_steps=9999999,
             reward_threshold=32000,
@@ -30,7 +30,7 @@ try:
         for (world_number, level_number, area_number, max_distance) in SMB_LEVELS:
             level = (world_number - 1) * 4 + (level_number - 1)
             register(
-                id='SuperMarioBros-{}-{}{}-v0'.format(world_number, level_number, tile_suffix),
+                id='SuperMarioBros-{}-{}{}-v1'.format(world_number, level_number, tile_suffix),
                 entry_point='super_mario:SuperMarioBrosEnv',
                 max_episode_steps=10000,
                 reward_threshold=(max_distance - 40),
