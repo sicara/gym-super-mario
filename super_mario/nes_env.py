@@ -61,6 +61,7 @@ class NesEnv(gym.Env, utils.EzPickle):
 
     def __init__(self):
         utils.EzPickle.__init__(self)
+        self.fceux_tmp_dir = tempfile.mkdtemp()
         self.rom_path = ''
         self.screen_height = 224
         self.screen_width = 256
@@ -241,7 +242,7 @@ class NesEnv(gym.Env, utils.EzPickle):
         args.extend(self.cmd_args[:])
         args.extend(['--loadlua', self.temp_lua_path])
         args.append(self.rom_path)
-        args.extend(['>log/fceux.stdout.log', '2>log/fceux.stderr.log', '&'])
+        args.extend(['>{}/fceux.stdout.log'.format(self.fceux_tmp_dir), '2>{}/fceux.stderr.log'.format(self.fceux_tmp_dir), '&'])
         self.subprocess = subprocess.Popen(' '.join(args), shell=True)
         self.subprocess.communicate()
         if 0 == self.subprocess.returncode:
