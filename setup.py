@@ -1,7 +1,7 @@
 from setuptools import setup
 
 setup(name='super-mario',
-    version='1.0.0',
+    version='2.0.0',
     description='Gym User Env - 32 levels of Super Mario Bros',
     url='https://github.com/sicara/gym_super_mario',
     author='Philip Paquette',

@@ -15,6 +15,7 @@ import gym
 from gym import utils, spaces
 from gym.utils import seeding
 
+PENALTY_NOT_MOVING = 1     # Penalty when not moving
 DEFAULT_REWARD_DEATH = -2  # Negative reward when Mario dies
 DISTANCE_START = 40        # Distance at which Mario starts in the level
 STUCK_DURATION = 100       # Duration limit for Mario to get stuck in seconds
@@ -301,7 +302,7 @@ class NesEnv(gym.Env, utils.EzPickle):
             self.info['score'] -
             self.old_info.get('score', 0)
         )
-        self.reward = distance_since_last_frame + score_since_last_frame
+        self.reward = distance_since_last_frame + score_since_last_frame - PENALTY_NOT_MOVING
 
         if self._get_is_finished and (self._is_dead() or self._is_stuck()):
             self.reward = self.reward_death
