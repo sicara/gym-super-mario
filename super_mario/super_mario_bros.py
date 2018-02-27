@@ -219,19 +219,6 @@ class SuperMarioBrosEnv(NesEnv):
         else:
             return self.screen.copy()
 
-    def _get_info(self):
-        return self.info
-
-    def _reset_info_vars(self):
-        self.info = {
-            'level': self.level,
-            'distance': 0,
-            'score': -1,
-            'coins': -1,
-            'time': -1,
-            'player_status': -1
-        }
-
 
 class MetaSuperMarioBrosEnv(SuperMarioBrosEnv, MetaNesEnv):
 

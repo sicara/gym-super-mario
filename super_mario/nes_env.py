@@ -304,6 +304,9 @@ class NesEnv(gym.Env, utils.EzPickle):
         )
         self.reward = distance_since_last_frame + score_since_last_frame - PENALTY_NOT_MOVING
 
+        print(distance_since_last_frame)
+        print(score_since_last_frame)
+
         if self._get_is_finished and (self._is_dead() or self._is_stuck()):
             self.reward = self.reward_death
         return self.reward
