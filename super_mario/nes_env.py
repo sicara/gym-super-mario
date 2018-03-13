@@ -662,40 +662,6 @@ class MetaNesEnv(NesEnv):
         self._write_to_pipe('changelevel#' + str(self.level))
         self.reset()
 
-    def _get_standard_reward(self, episode_reward):
-        # Can be overridden
-        std_reward = episode_reward
-        std_reward = min(1000, std_reward)                                  # Cannot be more than 1,000
-        std_reward = max(self.reward_death, std_reward)                          # Cannot be less than the reward for death
-        return std_reward
-
-    def get_total_reward(self):
-        # Returns the sum of the average of all levels
-        total_score = 0
-        passed_levels = 0
-        for i in range(self.num_levels):
-            if len(self.scores[i]) > 0:
-                level_total = 0
-                level_count = min(len(self.scores[i]), self.average_over)
-                for j in range(level_count):
-                    level_total += self.scores[i][j]
-                level_average = level_total / level_count
-                if level_average >= 990:
-                    passed_levels += 1
-                total_score += level_average
-        # Bonus for passing all levels (50 * num of levels)
-        if self.num_levels == passed_levels:
-            total_score += self.num_levels * 50
-        return round(total_score, 4)
-
-    def _calculate_reward(self, episode_reward, prev_total_reward):
-        # Calculates the action reward and the new total reward
-        std_reward = self._get_standard_reward(episode_reward)
-        self.scores[self.level][0] = std_reward
-        total_reward = self.get_total_reward()
-        reward = total_reward - prev_total_reward
-        return reward, total_reward
-
     def get_scores(self):
         # Returns a list with the averages per level
         averages = [0] * self.num_levels
@@ -733,22 +699,4 @@ class MetaNesEnv(NesEnv):
         if self.find_new_level:
             self.change_level()
 
-        obs, step_reward, is_finished, info = NesEnv.step(self, action)
-        reward, self.total_reward = self._calculate_reward(self._get_episode_reward(), self.total_reward)
-        # First step() after new episode returns the entire total reward
-        # because stats_recorder resets the episode score to 0 after reset() is called
-        if self.is_new_episode:
-            reward = self.total_reward
-
-        self.is_new_episode = False
-        info["level"] = self.level
-        info["scores"] = self.get_scores()
-        info["total_reward"] = round(self.total_reward, 4)
-        info["locked_levels"] = self.locked_levels
-
-        # Indicating new level required
-        if is_finished:
-            self._unlock_levels()
-            self.find_new_level = True
-
-        return obs, reward, is_finished, info
+        return NesEnv.step(self, action)
